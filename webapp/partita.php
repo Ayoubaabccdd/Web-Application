@@ -29,191 +29,141 @@ if (isset($_GET['id'])) {
 // Gestione aggiornamento delle mosse
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mosse'])) {
     $mosse = $conn->real_escape_string($_POST['mosse']);
-    if (empty($partita['mosse'])) {
-        $sql = "UPDATE `partita utente` SET mosse = '$mosse' WHERE ID = $id";
-    } else {
-        $sql = "UPDATE `partita utente` SET mosse = CONCAT(mosse, ',', '$mosse') WHERE ID = $id";
-    }
-    if ($conn->query($sql) === TRUE) {
-        echo "Mossa aggiunta con successo.";
-        // Aggiorna i dettagli della partita
-        $sql = "SELECT * FROM `partita utente` WHERE ID = $id";
-        $result = $conn->query($sql);
-        if ($result->num_rows > 0) {
-            $partita = $result->fetch_assoc();
+
+    // Verifica il formato della mossa (esempio: e2-e4)
+    if (preg_match('/^[a-h][1-8]-[a-h][1-8]$/', $mosse)) {
+        if (empty($partita['mosse'])) {
+            // Se non ci sono mosse precedenti, aggiungi la prima mossa
+            $sql = "UPDATE `partita utente` SET mosse = '$mosse' WHERE ID = $id";
+        } else {
+            // Se ci sono mosse precedenti, aggiungi la nuova mossa
+            $sql = "UPDATE `partita utente` SET mosse = CONCAT(mosse, ',', '$mosse') WHERE ID = $id";
+        }
+
+        if ($conn->query($sql) === TRUE) {
+            // Aggiorna i dettagli della partita
+            $sql = "SELECT * FROM `partita utente` WHERE ID = $id";
+            $result = $conn->query($sql);
+            if ($result->num_rows > 0) {
+                $partita = $result->fetch_assoc();
+            }
+        } else {
+            $error = "Errore durante l'aggiornamento delle mosse: " . $conn->error;
         }
     } else {
-        echo "Errore durante l'aggiornamento delle mosse: " . $conn->error;
+        $error = "Formato mossa non valido. Usa il formato: e2-e4.";
     }
 }
+
+// Funzione per generare la scacchiera in base alle mosse salvate
+function generateChessboard($mosse) {
+    $board = [
+        'a1' => '♜', 'b1' => '♘', 'c1' => '♗', 'd1' => '♕', 'e1' => '♔', 'f1' => '♗', 'g1' => '♘', 'h1' => '♖',
+        'a2' => '♙', 'b2' => '♙', 'c2' => '♙', 'd2' => '♙', 'e2' => '♙', 'f2' => '♙', 'g2' => '♙', 'h2' => '♙',
+        'a7' => '♟', 'b7' => '♟', 'c7' => '♟', 'd7' => '♟', 'e7' => '♟', 'f7' => '♟', 'g7' => '♟', 'h7' => '♟',
+        'a8' => '♖', 'b8' => '♘', 'c8' => '♗', 'd8' => '♕', 'e8' => '♔', 'f8' => '♗', 'g8' => '♘', 'h8' => '♖',
+    ];
+
+    // Verifica e applica le mosse
+    if ($mosse) {
+        $moves = explode(',', $mosse);
+        foreach ($moves as $move) {
+            $parts = explode('-', $move);
+            if (count($parts) === 2) {
+                list($from, $to) = $parts;
+                // Se la casella di destinazione è già occupata da un pezzo, il pezzo catturato scompare
+                if (isset($board[$to])) {
+                    unset($board[$to]); // Rimuove il pezzo già presente
+                }
+                // Sposta il pezzo
+                if (isset($board[$from])) {
+                    $board[$to] = $board[$from];
+                    unset($board[$from]);
+                }
+            }
+        }
+    }
+
+    return $board;
+}
+
+$chessboard = generateChessboard($partita['mosse'] ?? '');
 ?>
 
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dettagli Partita</title>
     <style>
-        body {
-            background-color: #f0f0f0;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 50px auto;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        .chessboard {
-            display: grid;
-            grid-template-columns: repeat(8, 50px);
-            grid-template-rows: repeat(8, 50px);
-            gap: 1px;
-            margin: 20px auto;
-            width: 416px;
-            height: 416px;
-            border: 2px solid #333;
-        }
-        .chessboard div {
-            width: 50px;
-            height: 50px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-        }
-        .chessboard .dark {
-            background-color: #769656;
-        }
-        .chessboard .light {
-            background-color: #eeeed2;
-        }
-        .piece {
-            cursor: pointer;
-            user-select: none;
-        }
-        button {
-            background-color: #333;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #555;
-        }
-        a {
-            color: #333;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        text-align: center;
+        padding: 20px;
+    }
+    .chessboard-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px 0;
+    }
+    .chessboard {
+        display: grid;
+        grid-template-columns: repeat(8, 50px);
+        grid-template-rows: repeat(8, 50px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border: 2px solid #333;
+    }
+    .chessboard div {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+    }
+    .light {
+        background-color: #eeeed2;
+    }
+    .dark {
+        background-color: #769656;
+    }
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1>Dettagli Partita</h1>
+    <h1>Dettagli Partita</h1>
+    <p><strong>ID:</strong> <?= $partita['ID'] ?></p>
+    <p><strong>ID Utente:</strong> <?= $partita['ID_UTENTE'] ?></p>
+    <p><strong>Data:</strong> <?= $partita['data'] ?></p>
+    <p><strong>Mosse:</strong> <?= $partita['mosse'] ?: 'Nessuna mossa' ?></p>
 
-        <p><strong>ID:</strong> <?= $partita['ID'] ?></p>
-        <p><strong>ID Utente:</strong> <?= $partita['ID_UTENTE'] ?></p>
-        <p><strong>ID Partita:</strong> <?= $partita['ID_PARTITA'] ?></p>
-        <p><strong>Data:</strong> <?= $partita['data'] ?></p>
-        <p><strong>Mosse:</strong> <?= $partita['mosse'] ?: 'Nessuna mossa inserita' ?></p>
+    <?php if (isset($error)): ?>
+        <p style="color: red;"><?= $error ?></p>
+    <?php endif; ?>
 
-        <div class="chessboard" id="chessboard">
-            <!-- La scacchiera verrà generata dinamicamente in JavaScript -->
-        </div>
-
-        
-        <form method="POST">
-            <label for="mosse">Inserisci mossa:</label>
-            <input type="text" id="mosse" name="mosse" required pattern="[a-h][1-8]-[a-h][1-8]" title="Formato mosse scacchi es. e2-e4">
-            <button type="submit">Aggiungi Mossa</button>
-        </form>
-
-        <a href="index.php">Torna all'elenco delle partite</a>
-    </div>
-
-    <script>
-    const chessboard = document.getElementById('chessboard');
-
-    // Funzione per generare la scacchiera
-    function generateBoard() {
-        const pieces = {
-            'a1': '♜', 'b1': '♘', 'c1': '♗', 'd1': '♕', 'e1': '♔', 'f1': '♗', 'g1': '♘', 'h1': '♖',
-            'a2': '♙', 'b2': '♙', 'c2': '♙', 'd2': '♙', 'e2': '♙', 'f2': '♙', 'g2': '♙', 'h2': '♙',
-            'a7': '♟', 'b7': '♟', 'c7': '♟', 'd7': '♟', 'e7': '♟', 'f7': '♟', 'g7': '♟', 'h7': '♟',
-            'a8': '♖', 'b8': '♘', 'c8': '♗', 'd8': '♕', 'e8': '♔', 'f8': '♗', 'g8': '♘', 'h8': '♖'
-        };
-
-        for (let row = 8; row >= 1; row--) {
-            for (let col = 1; col <= 8; col++) {
-                const square = document.createElement('div');
-                const squareId = `${String.fromCharCode(96 + col)}${row}`;
-                square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
-                square.id = squareId;
-
-                const piece = pieces[squareId];
-                if (piece) {
-                    const pieceElement = document.createElement('span');
-                    pieceElement.classList.add('piece');
-                    pieceElement.textContent = piece;
-                    square.appendChild(pieceElement);
-                }
-
-                chessboard.appendChild(square);
+    <div class="chessboard-container">
+    <div class="chessboard">
+        <?php
+        for ($row = 8; $row >= 1; $row--) {
+            for ($col = 1; $col <= 8; $col++) {
+                $square = chr(96 + $col) . $row;
+                $class = ($row + $col) % 2 === 0 ? 'light' : 'dark';
+                echo "<div class='$class'>" . ($chessboard[$square] ?? '') . "</div>";
             }
         }
-    }
+        ?>
+    </div>
+</div>
 
-    // Funzione per spostare il pezzo sulla scacchiera
-    function movePiece(from, to) {
-        const fromSquare = document.getElementById(from);
-        const toSquare = document.getElementById(to);
+    <form method="POST">
+        <label for="mosse">Inserisci mossa:</label>
+        <input type="text" id="mosse" name="mosse" required pattern="[a-h][1-8]-[a-h][1-8]" title="Formato mosse es. e2-e4">
+        <button type="submit">Aggiungi Mossa</button>
+    </form>
 
-        const piece = fromSquare.querySelector('.piece');
-        if (piece) {
-            toSquare.appendChild(piece); // Sposta il pezzo nella nuova casella
-        }
-    }
-
-    // Gestione delle mosse
-    function handleMove(mossa) {
-        const regex = /^[a-h][1-8]-[a-h][1-8]$/; // Formato mossa: es. e2-e4
-        if (regex.test(mossa)) {
-            const [from, to] = mossa.split('-');
-            movePiece(from, to); // Sposta il pezzo
-        } else {
-            alert('Formato mossa non valido');
-        }
-    }
-
-    // Funzione che si attiva al caricamento della pagina
-    window.onload = function () {
-        generateBoard();
-
-        // Aggiungi l'evento per inviare la mossa
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const mossaInput = document.getElementById('mosse');
-            const mossa = mossaInput.value;
-            handleMove(mossa); // Esegui il movimento
-            mossaInput.value = ''; // Pulisci il campo mossa
-        });
-    }
-</script>
+    <a href="index.php">Torna all'elenco delle partite</a>
 </body>
 </html>
 
