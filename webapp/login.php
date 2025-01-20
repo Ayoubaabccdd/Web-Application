@@ -7,25 +7,36 @@ $dbname = 'web_application';
 
 $conn = new mysqli($host, $user, $password, $dbname);
 
+session_start(); 
+
 if ($conn->connect_error) {
     die("Connessione fallita: " . $conn->connect_error);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['login'])) {
-        // Login utente
         $username = $_POST['username'];
+        $password = $_POST['password']; // Recupera la password inserita
 
+        // Prepara e esegui la query per trovare l'utente
         $stmt = $conn->prepare("SELECT * FROM utenti WHERE username = ?");
         $stmt->bind_param("s", $username);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows > 0) {
-            session_start();
-            $_SESSION['username'] = $username;
-            header("Location: index.php");
-            exit();
+            $user = $result->fetch_assoc();
+
+            // Verifica la password
+            if (password_verify($password, $user['password'])) {
+                // Login riuscito, salva i dati nella sessione
+                $_SESSION['username'] = $username;
+                $_SESSION['user_id'] = $user['ID']; // Salva l'ID utente nella sessione
+                header("Location: index.php");
+                exit();
+            } else {
+                echo "<script>alert('Password errata');</script>";
+            }
         } else {
             echo "<script>alert('Username non trovato');</script>";
         }
@@ -68,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 10px 0;
             color: #555;
         }
-        input[type="text"] {
+        input[type="text"], input[type="password"] {
             width: calc(100% - 20px);
             padding: 10px;
             margin-bottom: 20px;
@@ -103,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h1>Login</h1>
         <form method="POST">
             <label>Username: <input type="text" name="username" required></label><br>
+            <label>Password: <input type="password" name="password" required></label><br>
             <button type="submit" name="login">Accedi</button>
         </form>
         <a href="registro.php">Registrati</a>
