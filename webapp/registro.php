@@ -17,9 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = $_POST['username'];
         $nome = $_POST['nome'];
         $cognome = $_POST['cognome'];
+        $password = $_POST['password'];
 
-        $stmt = $conn->prepare("INSERT INTO utenti (username, nome, cognome) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $username, $nome, $cognome);
+        // Hash della password
+        $hashed_password = password_hash($password, PASSWORD_BCRYPT);
+
+        // Inserimento nel database
+        $stmt = $conn->prepare("INSERT INTO utenti (username, nome, cognome, password) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $username, $nome, $cognome, $hashed_password);
 
         if ($stmt->execute()) {
             echo "<script>alert('Registrazione completata con successo!');</script>";
@@ -65,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 10px 0;
             color: #555;
         }
-        input[type="text"] {
+        input[type="text"], input[type="password"] {
             width: calc(100% - 20px);
             padding: 10px;
             margin-bottom: 20px;
@@ -102,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Username: <input type="text" name="username" required></label><br>
             <label>Nome: <input type="text" name="nome" required></label><br>
             <label>Cognome: <input type="text" name="cognome" required></label><br>
+            <label>Password: <input type="password" name="password" required></label><br>
             <button type="submit" name="register">Registrati</button>
         </form>
         <a href="login.php">Torna al login</a>
