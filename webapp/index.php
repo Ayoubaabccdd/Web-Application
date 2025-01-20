@@ -7,18 +7,36 @@ $dbname = "web_application";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 
+session_start(); // Avvia la sessione
+
+// Controlla se l'utente è loggato
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php"); // Reindirizza al login se non loggato
+    exit();
+}
+
 // Controllo della connessione
 if ($conn->connect_error) {
     die("Connessione fallita: " . $conn->connect_error);
 }
 
-// Creazione di una nuova partita
+// Creazione partita
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = date('Y-m-d');
-    $mosse = NULL; // Default per nuove partite
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: login.php"); // Reindirizza al login se non loggato
+        exit();
+    }
 
-    $sql = "INSERT INTO `partita utente` (ID_UTENTE, ID_PARTITA, data, mosse) VALUES (1, 0, '$data', NULL)";
-    if ($conn->query($sql) === TRUE) {
+    $user_id = $_SESSION['user_id']; // ID dell'utente loggato
+    $data = date('Y-m-d');
+    $nome_partita = $_POST['nome_partita']; // Nome della partita
+
+    // Modifica la query per includere il nome della partita
+    $sql = "INSERT INTO `partita utente` (ID_UTENTE, data, nome_partita, mosse) VALUES (?, ?, ?, NULL)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("iss", $user_id, $data, $nome_partita);
+
+    if ($stmt->execute()) {
         echo "Nuova partita creata con successo.";
     } else {
         echo "Errore: " . $conn->error;
@@ -26,8 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Recupero delle partite
-$sql = "SELECT ID, data FROM `partita utente` ORDER BY data DESC";
-$result = $conn->query($sql);
+$user_id = $_SESSION['user_id']; // ID utente dalla sessione
+$sql = "SELECT ID, data, nome_partita FROM `partita utente` WHERE ID_UTENTE = ? ORDER BY data DESC";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -77,6 +99,7 @@ $result = $conn->query($sql);
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin: 10px 0;
         }
         button:hover {
             background-color: #555;
@@ -101,7 +124,10 @@ $result = $conn->query($sql);
     <div class="container">
         <h1>Gestione Partite</h1>
 
+        <!-- Modulo per la creazione di una nuova partita -->
         <form method="POST">
+            <label for="nome_partita">Nome della partita:</label>
+            <input type="text" id="nome_partita" name="nome_partita" required><br>
             <button type="submit">Crea Nuova Partita</button>
         </form>
 
@@ -111,7 +137,7 @@ $result = $conn->query($sql);
                 <?php while ($row = $result->fetch_assoc()): ?>
                     <li>
                         <a href="partita.php?id=<?= $row['ID'] ?>">
-                            Partita #<?= $row['ID'] ?> - <?= $row['data'] ?>
+                            Partita: <?= $row['nome_partita'] ?> - Data: <?= $row['data'] ?>
                         </a>
                     </li>
                 <?php endwhile; ?>
@@ -119,6 +145,11 @@ $result = $conn->query($sql);
                 <li>Nessuna partita disponibile.</li>
             <?php endif; ?>
         </ul>
+
+        <!-- Pulsante per tornare al login -->
+        <form action="login.php" method="GET">
+            <button type="submit">Torna al login</button>
+        </form>
     </div>
 </body>
 </html>
@@ -126,5 +157,3 @@ $result = $conn->query($sql);
 <?php
 $conn->close();
 ?>
-
-
