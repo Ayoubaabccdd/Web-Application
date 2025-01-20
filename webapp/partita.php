@@ -117,7 +117,39 @@ $chessboard = generateChessboard($partita['mosse'] ?? '');
     <meta charset="UTF-8">
     <title>Dettagli Partita</title>
     <style>
-        /* Stile identico a quello già fornito */
+               body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        text-align: center;
+        padding: 20px;
+    }
+    .chessboard-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px 0;
+    }
+    .chessboard {
+        display: grid;
+        grid-template-columns: repeat(8, 50px);
+        grid-template-rows: repeat(8, 50px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border: 2px solid #333;
+    }
+    .chessboard div {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+    }
+    .light {
+        background-color: #eeeed2;
+    }
+    .dark {
+        background-color: #769656;
+    }
     </style>
 </head>
 <body>
